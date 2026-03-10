@@ -69,6 +69,27 @@ class ParticipantService {
     const data = JSON.stringify(participants, null, 2);
     await fs.promises.writeFile(this.participantsFilePath, data, "utf-8");
   }
+  // Pour supprimer un participant sélectionné dans le v-data-table
+  async supprimerParticipant(matricule) {
+    const participants = await this.lireParticipants();
+    const index = participants.findIndex((p) => p.matricule === matricule);
+    if (index !== -1) {
+      participants.splice(index, 1);
+      await this.ecrireParticipants(participants);
+    } else {
+      throw new Error(`Participant avec matricule ${matricule} introuvable.`);
+    }
+  }
+  async modifierParticipant(updated) {
+    const participants = await this.lireParticipants();
+    const index = participants.findIndex((p) => p.matricule === updated.matricule);
+    if (index !== -1) {
+      participants[index] = { ...participants[index], ...updated };
+      await this.ecrireParticipants(participants);
+    } else {
+      throw new Error(`Participant avec matricule ${updated.matricule} introuvable`);
+    }
+  }
 }
 let mainWindow = null;
 electron.app.on("ready", () => {
@@ -93,23 +114,52 @@ electron.app.on("ready", () => {
   });
   mainWindow.loadURL("http://localhost:5173");
 });
-electron.ipcMain.on("open-accueil", () => {
-  const accueilWindow = new electron.BrowserWindow({
+electron.ipcMain.on("ajouter-participant", () => {
+  const ajoutWindow = new electron.BrowserWindow({
     width: 550,
-    height: 500,
+    height: 700,
+    title: "Nouveau participant",
+    modal: true,
+    parent: mainWindow || void 0,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true
     }
   });
-  accueilWindow?.once("ready-to-show", () => {
-    accueilWindow?.show();
+  ajoutWindow?.once("ready-to-show", () => {
+    ajoutWindow?.show();
   });
-  accueilWindow?.webContents.on("did-finish-load", () => {
-    accueilWindow?.show();
+  ajoutWindow?.webContents.on("did-finish-load", () => {
+    ajoutWindow?.show();
   });
-  accueilWindow.loadURL("http://localhost:5173/#/accueil");
+  ajoutWindow.loadURL("http://localhost:5173/#/ajouterParticipant");
+});
+let selectedParticipantForModif = null;
+electron.ipcMain.on("modifier-participant", (event, participant) => {
+  selectedParticipantForModif = participant;
+  const modifWindow2 = new electron.BrowserWindow({
+    width: 550,
+    height: 700,
+    title: "Modifier un participant",
+    modal: true,
+    parent: mainWindow || void 0,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/preload.js"),
+      contextIsolation: true
+    }
+  });
+  modifWindow2?.once("ready-to-show", () => {
+    modifWindow2?.show();
+    if (modifWindow2 && selectedParticipantForModif) {
+      modifWindow2.webContents.send("selected-participant", selectedParticipantForModif);
+    }
+  });
+  modifWindow2?.webContents.on("did-finish-load", () => {
+    modifWindow2?.show();
+  });
+  modifWindow2.loadURL("http://localhost:5173/#/modifierParticipant");
 });
 electron.ipcMain.on("message-channel", (event, arg) => {
   console.log("Message reçu :", arg);
@@ -137,4 +187,24 @@ electron.ipcMain.handle("Canal-AjouterParticipant", async (_event, participant) 
 });
 electron.ipcMain.handle("show-message-box", async (event, options) => {
   return electron.dialog.showMessageBox(options);
+});
+electron.ipcMain.handle("Canal-SupprimerParticipant", async (_event, matricule) => {
+  try {
+    await participantService.supprimerParticipant(matricule);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+electron.ipcMain.handle("Canal-ModifierParticipant", async (_event, updatedParticipant) => {
+  try {
+    await participantService.modifierParticipant(updatedParticipant);
+    if (mainWindow) {
+      const plainParticipant = JSON.parse(JSON.stringify(updatedParticipant));
+      mainWindow.webContents.send("participant-modified", plainParticipant);
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });

@@ -50,4 +50,35 @@ export class ParticipantService {
         const data = JSON.stringify(participants, null, 2);
         await fs.writeFile(this.participantsFilePath, data, 'utf-8');
     }
+
+    // Pour supprimer un participant sélectionné dans le v-data-table
+    public async supprimerParticipant(matricule:number): Promise<void> {
+
+        const participants = await this.lireParticipants();
+
+        const index = participants.findIndex(p=> p.matricule === matricule)
+
+        if(index !== -1) {
+            participants.splice(index, 1); // supprimer 1 élément à partir de l'index donnée
+            await this.ecrireParticipants(participants)
+        } else{
+            throw new Error(`Participant avec matricule ${matricule} introuvable.`);
+        }
+
+    }
+
+    public async modifierParticipant(updated: Partial<Participant>): Promise<void> {
+    
+        const participants = await this.lireParticipants()
+
+        const index = participants.findIndex(p => p.matricule === updated.matricule)
+        if (index !== -1) {
+            participants[index] = { ...participants[index], ...updated }
+            await this.ecrireParticipants(participants)
+    } else {
+      throw new Error(`Participant avec matricule ${updated.matricule} introuvable`)
+    }
+  }
+
+
 }

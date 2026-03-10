@@ -1,27 +1,27 @@
 <template>
   <v-container>
     <v-form @submit.prevent="submitForm" ref="formRef">
-      <v-text-field v-model="..." label="Matricule" type="number" required />
-      <v-text-field v-model="..." label="Prénom" required />
-      <v-text-field v-model="..." label="Nom" required />
+      <v-text-field v-model="newParticipant.matricule" label="Matricule" type="number" required />
+      <v-text-field v-model="newParticipant.prenom" label="Prénom" required />
+      <v-text-field v-model="newParticipant.nom" label="Nom" required />
 
       <v-select
-        v-model="..."
+        v-model="newParticipant.genre"
         :items="['M', 'F']"
         label="Genre"
         required
       />
 
       <v-select
-        v-model="..."
+        v-model="newParticipant.niveau"
         :items="['Débutant', 'Intermédiaire', 'Professionnel']"
         label="Niveau"
         required
       />
 
-      <v-text-field v-model="..." label="Courriel" type="email" required />
+      <v-text-field v-model="newParticipant.email" label="Courriel" type="email" required />
 
-      <v-switch v-model="..." label="Actif" />
+      <v-switch v-model="newParticipant.isActif" label="Actif" />
 
       <v-btn type="submit" color="primary">Ajouter</v-btn>
     </v-form>
@@ -30,10 +30,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-...
-...
+import { useParticipantStore } from '../stores/participantStores'
+import type { Participant } from '@/common/participant'
 
-const store = ...
+const store = useParticipantStore()
 const formRef = ref()
 
 const newParticipant = ref<Participant>({
@@ -46,20 +46,22 @@ const newParticipant = ref<Participant>({
   isActif: true,
 })
 
-... {
+async function submitForm() {
   try {
     
-    const result = ...
+    const result = await store.ajouterParticipant({ ...newParticipant.value})
     
-    if (...) {
+    // Si l'ajout du participant à bien fonctionné
+    if (result.success) {
 
-	  ...({
+	  await window.api.showMessageBox({
         type: "info",
         title: "Ajout",
-        message: `...`,
+        message: `Participant ${newParticipant.value.nom} ajouté avec succès`,
       });
 
-      ... = {
+      // Après l'ajout, reset du newParticipant
+      newParticipant.value = {
         matricule: 0,
         prenom: '',
         nom: '',
